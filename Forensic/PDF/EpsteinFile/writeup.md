@@ -1,11 +1,14 @@
-# EpsteinFile - PDF Forensics Challenge Writeup
+# EpsteinFile - PragyanCTF2026
 
 ## Challenge Overview
-Sebuah challenge forensics yang melibatkan analisis file PDF dengan teks tersembunyi dan enkripsi berlapis.
+You are provided with a PDF file related to an ongoing investigation. The document appears complete, but not everything is as it seems.
 
+Analyze the file carefully and recover the hidden flag!!!
 ## Solution Steps
 
 ### 1. Ekstraksi Teks dari PDF
+Sebuah challenge forensics yang melibatkan analisis file PDF dengan teks tersembunyi dan enkripsi berlapis.
+
 Langkah pertama, saya mencurigai adanya teks yang disamarkan di balik balok-balok hitam pada PDF. Untuk memverifikasi hal ini, saya mengekstrak semua teks dari PDF:
 ```bash
 pdftotext contacts.pdf - | wc -l
