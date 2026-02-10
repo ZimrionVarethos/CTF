@@ -1,5 +1,4 @@
 <div align="center">
-
 ```
 ███████╗ ██████╗ ██████╗ ███████╗███╗   ██╗███████╗██╗ ██████╗███████╗
 ██╔════╝██╔═══██╗██╔══██╗██╔════╝████╗  ██║██╔════╝██║██╔════╝██╔════╝
@@ -8,7 +7,6 @@
 ██║     ╚██████╔╝██║  ██║███████╗██║ ╚████║███████║██║╚██████╗███████║
 ╚═╝      ╚═════╝ ╚═╝  ╚═╝╚══════╝╚═╝  ╚═══╝╚══════╝╚═╝ ╚═════╝╚══════╝
 ```
-
 <img src="https://readme-typing-svg.herokuapp.com?font=Fira+Code&size=22&duration=3000&pause=1000&color=FF0000&center=true&vCenter=true&width=800&lines=Digital+Forensics+%26+Incident+Response;Malware+Analysis+%7C+Network+Traffic+Analysis;Memory+Forensics+%7C+Disk+Imaging;Raw+Data+Analysis+%7C+File+Carving;Steganography+%7C+Data+Recovery;Hunting+Threats+in+the+Wild" alt="Typing SVG" />
 
 ![Malware Analysis](https://img.shields.io/badge/🦠_Malware-Analysis-darkred?style=for-the-badge&logoColor=white)
