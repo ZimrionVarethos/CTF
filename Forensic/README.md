@@ -69,7 +69,7 @@ class DigitalForensicAnalyst:
 
 | Challenge | CTF Event | Difficulty | Category | Writeup |
 |:------------|:------------|:-------------:|:-----------|:---------:|
-| EpsteinFile | PragyanCTF2026 | Easy | Memory Forensics | [View](./challenge1/) |
+| EpsteinFile | PragyanCTF2026 | Easy | Memory Forensics | [View](./PDF/EpsteinFile) |
 | Example Challenge 2 | Event Name 2024 | Medium | Network Traffic | [View](./challenge2/) |
 | Example Challenge 3 | Event Name 2024 | Hard | Malware Analysis | [View](./challenge3/) |
 
