@@ -14,7 +14,7 @@ ________________________________________________________________________________
 
 **A comprehensive collection of Capture The Flag (CTF) challenges and writeups**
 
-[Forensics](-Forensic) | [Cryptography](#-Cryptography) | [WebEx](#️-WebEx) | [Reverse](#-Reverse)
+[Forensics](Forensic) | [Cryptography](Cryptography) | [WebEx](WebEx) | [Reverse](Reverse)
 
 </div>
 
