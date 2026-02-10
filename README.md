@@ -8,9 +8,10 @@ ________________________________________________________________________________
 
 <div align="center">
 
-[![GitHub Stars](https://img.shields.io/github/stars/ZimrionVarethos/CTF?style=for-the-badge&logo=github&color=yellow)](https://github.com/yourusername/CTF/stargazers)
-[![Last Commit](https://img.shields.io/github/last-commit/ZimrionVarethos/CTF?style=for-the-badge&logo=git&color=blue)](https://github.com/yourusername/CTF/commits/main)
-[![License](https://img.shields.io/badge/License-MIT-green.svg?style=for-the-badge)](LICENSE)
+[![GitHub Stars](https://img.shields.io/github/stars/ZimrionVarethos/CTF?style=for-the-badge&logo=github&color=yellow)](https://github.com/ZimrionVarethos/CTF/stargazers)
+[![Last Commit](https://img.shields.io/github/last-commit/ZimrionVarethos/CTF?style=for-the-badge&logo=git&color=blue)](https://github.com/ZimrionVarethos/CTF/commits/main)
+![Type](https://img.shields.io/badge/Type-CTF%20Writeups-purple?style=for-the-badge)
+![Status](https://img.shields.io/badge/Status-Active-success?style=for-the-badge)
 
 **A comprehensive collection of Capture The Flag (CTF) challenges and writeups**
 
