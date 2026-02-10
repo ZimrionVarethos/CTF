@@ -14,7 +14,7 @@ ________________________________________________________________________________
 
 **A comprehensive collection of Capture The Flag (CTF) challenges and writeups**
 
-[Challenges](#-challenges) | [Statistics](#-statistics) | [Tools](#️-tools) | [Resources](#-resources)
+[Forensics](#-Forensic) | [Cryptography](#-Cryptography) | [WebEx](#️-WebEx) | [Reverse](#-Reverse)
 
 </div>
 
