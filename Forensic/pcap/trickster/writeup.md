@@ -1,8 +1,12 @@
-# 🚩 FULL WRITEUP: THE CHIZURU MALWARE REVERSE ENGINEERING
+# FULL WRITEUP: INTECHFEST2025-TRICKSTER
 
 ## PHASE 1: INITIAL DISCOVERY (THE ENTRY POINT)
 
-Semuanya dimulai dari file `challenge.zip` yang berisi sebuah file biner misterius.
+Semuanya dimulai dari file `challenge.scap` yang berisi sebuah rekaman system, analisis singkat :
+```bash
+csysdig -r challange.scap evt.type=execve
+```
+di sini ditemukan sebuah link yang mengarahkan ke github, langsung dapet 2 link [file .pem dan .sh] link kedua berisi cmatrix ELF file.
 
 1. **Identifikasi File:** Kita punya file bernama `cmatrix`. Pas kita cek pakai perintah `file cmatrix`, ternyata itu adalah **PyInstaller executable**.
 2. **Extraction (PyInstxtractor):** Kita bongkar biner Python itu untuk melihat source code aslinya.
@@ -11,16 +15,21 @@ Semuanya dimulai dari file `challenge.zip` yang berisi sebuah file biner misteri
 python3 pyinstxtractor.py cmatrix
 ```
 
-3. **Hasil Extract:** Di dalam folder hasil extract, kita nemu harta karun:
+3. **Hasil Extract:** Di dalam folder hasil extract ada `dropper.pyc` langsung saja decopile:
+
+```bash
+uncompyle6 dropper.pyc
+```
+
    - `utama.bin`: Script utama yang sudah di-compile.
-   - `libutama.so` (atau `libutama.bin`): Shared library pendukung.
-   - **Link Tersembunyi:** Di salah satu metadata atau script hasil decompile, kita nemu URL GitHub Gist yang mencurigakan (milik user `blacowhait`).
+   - `libutama.so`: Shared library pendukung.
+   - **Link Tersembunyi:** Di salah satu script hasil decompile, kita nemu URL GitHub Gist yang mencurigakan (milik user `blacowhait`).
 
 ---
 
 ## PHASE 2: ENVIRONMENT RECONSTRUCTION (DOCKER)
 
-Karena menjalankan malware di mesin asli itu bunuh diri, kita bangun "Laboratorium" di Docker.
+Biasakan pake environment terpisah, kita bangun di Docker.
 
 1. **Build Lab:** Kita pakai Ubuntu karena library-nya paling cocok.
 
@@ -28,7 +37,7 @@ Karena menjalankan malware di mesin asli itu bunuh diri, kita bangun "Laboratori
 docker run -it --rm -v $(pwd):/malware -w /malware ubuntu:latest /bin/bash
 ```
 
-2. **Fix Dependency (The Python 3.8 Nightmare):** Malware ini manja, dia minta Python 3.8 yang sudah *deprecated*.
+2. **Fix Dependency (The Python 3.8):** dia minta Python 3.8 yang sudah *deprecated*.
 
 ```bash
 add-apt-repository ppa:deadsnakes/ppa -y && apt update
@@ -44,7 +53,7 @@ python3.8 -m pip install pycryptodome
 
 ## PHASE 3: COMMAND SNIFFING (THE SHELL HIJACKING)
 
-Ini langkah paling cerdas yang kita lakuin. Daripada nebak-nebak apa yang dilakuin `utama.bin`, kita **"sadap"** perintah shell-nya.
+Ini langkah rev. Daripada nebak-nebak apa yang dilakuin `utama.bin`, kita **"sadap"** perintah shell-nya.
 
 1. **Kenapa?** Karena pas kita run, muncul error `/bin/sh: 1: Bad substitution`. Ini artinya malware lagi nyoba kirim perintah Bash yang kompleks lewat Python.
 2. **Hijacking `/bin/sh`:**
@@ -111,7 +120,7 @@ openssl enc -aes-256-ctr -d -K $MY_KEY -iv $MY_IV
 
 ## PHASE 6: THE FLAG
 
-Setelah semua drama library, shell hijacking, dan rumus matematika gila itu, munculah flag-nya:
+Setelah itu munculah flag-nya:
 
 ```
 INTECHFEST{actually_i_wanna_add_pyArmor_but_its_broken_8217da}
