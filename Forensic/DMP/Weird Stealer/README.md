@@ -8,9 +8,11 @@
 
 ## Overview
 
-File yang diberikan: `stealer.DMP` (76MB).
+Attachment: `stealer.DMP` (76MB)
 
-## Langkah 1. Recon Awal: bulk_extractor
+I just found this weird stealer in the wild, no scenario needed, my heart is already stolen ❤️
+
+## Langkah 1. Recon Awal
 
 karena volatility ga bisa , nyoba scan DMP secara kasar. pake `bulk_extractor`.
 
