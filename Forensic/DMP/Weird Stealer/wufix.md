@@ -163,13 +163,16 @@ for i in range(stream_count):
         for j in range(mod_count):
             base_va  = struct.unpack('<Q', data[pos:pos+8])[0]
             mod_size = struct.unpack('<I', data[pos+8:pos+12])[0]
-            # MINIDUMP_MODULE adalah struct 112 bytes
-            # Di offset +108: RVA ke MINIDUMP_STRING (nama file)
-            name_rva = struct.unpack('<I', data[pos+108:pos+112])[0]
-            name_len = struct.unpack('<I', data[name_rva:name_rva+4])[0]
-            name     = data[name_rva+4:name_rva+4+name_len].decode('utf-16-le', errors='replace')
+            # MINIDUMP_MODULE = 108 bytes
+            # ModuleNameRva (RVA ke MINIDUMP_STRING) di offset +20
+            name_rva = struct.unpack('<I', data[pos+20:pos+24])[0]
+            if name_rva + 4 <= len(data):
+                name_len = struct.unpack('<I', data[name_rva:name_rva+4])[0]
+                name     = data[name_rva+4:name_rva+4+name_len].decode('utf-16-le', errors='replace')
+            else:
+                name = '(invalid rva)'
             print(f"         [{j:2d}] base={hex(base_va)}, size={hex(mod_size)}, {name}")
-            pos += 112
+            pos += 108
 
     # === Memory64ListStream: VA → file offset mapping ===
     if stype == 9:
@@ -206,7 +209,7 @@ Output yang relevan:
 
 [*] Stream directory:
   [ 0] ModuleListStream: ...
-         [0] base=0x7ff697eb0000, size=0x2dc2000, C:\Users\SERV\AppData\Local\Temp\stealer.exe
+         [0] base=0x7ff697eb0000, size=0x2dc2000, C:\Users\SERV\Desktop\stealer.exe
          [1] base=0x7ffb12340000, ...ntdll.dll
          ...
   [ 8] Memory64ListStream: ...
@@ -686,7 +689,7 @@ Untuk dokumentasi/bukti:
 | Input | `stealer.DMP` — Windows MiniDump, 76MB, 15 streams, 149 memory ranges |
 | Format MDMP | `ModuleListStream` (module list) + `Memory64ListStream` (VA→file offset map) |
 | C2 Server | `172.20.180.135:1337` — `/upload`, `/upload4`, `/checksum` |
-| Stealer binary | `C:\Users\SERV\AppData\Local\Temp\stealer.exe`, PE32+ x86-64, 13.4MB |
+| Stealer binary | `C:\Users\SERV\Desktop\stealer.exe`, PE32+ x86-64, 13.4MB |
 | Bahasa | Go dengan Garble obfuscation (package/function names di-randomize) |
 | SHA256 | `c6774d4ac1b4132f20f91581d2fbadb3a03f72738b562bd5840273d87b20b9d7` |
 | Target stealer | `C:\Users\SERV\Documents\flag.txt` + DPAPI Crypto keys + registry hives |
