@@ -1,4 +1,4 @@
-# WriteUp — WeordStealer (Forensic)
+# WeordStealer (Forensic)
 
 **Event:** FindIT CTF Qualifikasi  
 **Category:** Forensics  
@@ -8,33 +8,17 @@
 
 ## Overview
 
-File yang diberikan: `stealer.DMP` (76MB). Deskripsi soal bilang *"I just found this weird stealer in the wild"* — kita dikasih memory dump dari proses stealer yang sedang/sudah berjalan.
+File yang diberikan: `stealer.DMP` (76MB).
 
-Alur solve:
+## Langkah 1. Recon Awal: bulk_extractor
 
-```
-stealer.DMP
-  ├─[1] bulk_extractor   → C2 URL, AES keys, ZIP artifacts
-  ├─[2] parse MDMP       → base VA stealer.exe, VA→file offset map
-  ├─[3] reconstruct PE   → carve/stealer_extracted.exe
-  ├─[4] analisis binary  → Go + Garble, konfirmasi enkripsi
-  ├─[5] heap scan        → flag.txt path, POST /checksum body
-  └─[6] AES-256-GCM      → FLAG
-```
-
----
-
-## Langkah 1 — Recon Awal: bulk_extractor
-
-Sebelum apapun, kita scan DMP secara kasar. Tool `bulk_extractor` bekerja tanpa perlu memahami format file — dia cukup scan seluruh byte stream dan ekstrak pattern yang menarik: URL, domain, ZIP header, AES key candidate, dll.
+karena volatility ga bisa , nyoba scan DMP secara kasar. pake `bulk_extractor`.
 
 ```bash
-sudo apt install bulk-extractor
 bulk_extractor -o output_hasil stealer.DMP
-ls -lh output_hasil/
 ```
 
-**Hasil penting dari `output_hasil/url.txt`:**
+**Temuan menarik `output_hasil/url.txt`:**
 
 ```
 http://172.20.180.135:1337/upload4
@@ -51,65 +35,36 @@ Port `1337` + endpoint `/upload` dan `/checksum` — pola klasik C2 info-stealer
 15131907  28 e6 3c a3 0e a9 d8 6d 27 be 24 20 0e 58 cc 08 a4 d8 bd 9c 8d 14 b1 e8 3c 53 64 04 b9 f5 e7 4c  AES256
 ```
 
-Ada dua kandidat AES-256 key di raw dump. Bulk_extractor deteksi ini lewat pattern entropy tinggi + key schedule analysis.
-
-**Dari `output_hasil/zip.txt`:**
-
-```
-14974203  PK  (local file header)
-```
-
-Ada ZIP embedded di memory. Isinya: `Crypto\Keys\...`, `SYSTEM.hive`, `SECURITY.hive` — bahan curian DPAPI + registry hive.
+Ada dua kandidat AES-256 key di raw dump.
 
 ---
 
-## Intermezzo: Kenapa Kita Perlu Parse MDMP Sendiri?
+bulk_extractor masih kurang, belum dapet **executable stealer-nya**. Kita tahu stealer berjalan dan meninggalkan jejak di memory artinya PE binary-nya pasti ada di dump.
 
-bulk_extractor kasih petunjuk berharga, tapi kita belum punya **executable stealer-nya**. Kita tahu stealer berjalan dan meninggalkan jejak di memory — artinya PE binary-nya pasti ada di dump.
-
-Masalahnya: **DMP bukan flat memory dump**. File ini berformat **Windows MiniDump (MDMP)**, dan sifatnya cukup spesifik:
+Masalahnya: **DMP bukan flat memory dump**. File ini berformat **Windows MiniDump (MDMP)**:
 
 ```
-┌─────────────────────────────────────────────────┐
-│  MDMP Header (magic "MDMP", versi, stream count) │
-├─────────────────────────────────────────────────┤
-│  Stream Directory                                 │
-│  ├── Stream 0: ModuleListStream (type=4)         │
-│  │     → setiap .exe/.dll yang di-load:          │
-│  │       nama file, base VA, ukuran              │
-│  ├── Stream 1: Memory64ListStream (type=9)       │
-│  │     → setiap region memori:                   │
-│  │       VA (virtual address), ukuran, ...       │
-│  └── ... (ThreadList, SystemInfo, Exception, ...) │
-├─────────────────────────────────────────────────┤
-│  Memory Data Block                               │
-│  (bytes dari semua region, dikemas rapat-rapat)  │
-└─────────────────────────────────────────────────┘
-```
 
-**Sifat penting MDMP yang harus dipahami:**
+Sifat MDMP :
 
-1. **Memori disimpan dalam "ranges"** — bukan flat dari 0x0 sampai 0xFFFFFFFF. Yang disimpan hanya region yang aktif dipakai proses.
+1. Memori disimpan dalam "ranges"  bukan flat dari 0x0 sampai 0xFFFFFFFF. Yang disimpan hanya region yang aktif dipakai proses.
 
-2. **VA ≠ file offset** — alamat `0x7ff697eb0000` di memory proses BUKAN berarti ada di posisi itu di file DMP. Posisi aktual di file bergantung pada urutan ranges di Memory64ListStream.
+2. VA ≠ file offset, alamat `0x7ff697eb0000` di memory proses BUKAN berarti ada di posisi itu di file DMP. Posisi aktual di file bergantung pada urutan ranges di Memory64ListStream.
 
-3. **Mapping VA → file offset** harus dibangun manual:
-   ```
+3. Mapping VA → file offset harus dibangun manual:
    Range ke-0: VA=X0, size=S0 → file_offset = base_data_offset
    Range ke-1: VA=X1, size=S1 → file_offset = base_data_offset + S0
    Range ke-2: VA=X2, size=S2 → file_offset = base_data_offset + S0 + S1
-   ...
-   ```
 
-4. **PE tersebar di beberapa range** — Windows load PE section per section, jadi `.text`, `.data`, `.rdata` bisa ada di range berbeda.
+4. PE tersebar di beberapa range, Windows load PE section per section, jadi `.text`, `.data`, `.rdata` bisa ada di range berbeda.
 
-Karena itu kita tidak bisa langsung `dd if=stealer.DMP bs=1 skip=X count=Y` dan dapat PE yang valid. Kita harus reconstruct page by page lewat VA mapping.
-
+Karena itu ga bisa langsung `dd if=stealer.DMP bs=1 skip=X count=Y` dan dapat PE yang valid. Kita harus reconstruct page by page lewat VA mapping.
+```
 ---
 
-## Langkah 2 — Parse MDMP: Temukan stealer.exe Base VA
+## Langkah 2. Parse MDMP nyari stealer.exe Base VA
 
-Script ini parse header MDMP, list semua module yang di-load, dan build VA→file offset mapping.
+pske Script ini parse header MDMP, list semua module yang di-load, dan build VA(file offset mapping).
 
 ```python
 #!/usr/bin/env python3
@@ -197,11 +152,7 @@ for i in range(stream_count):
             print(f"           VA={hex(va)}, size={hex(sz)}, file_off={hex(foff)}")
 ```
 
-```bash
-python3 parse_mdmp.py
-```
-
-Output yang relevan:
+Output penting:
 ```
 [+] MDMP confirmed, ukuran: 79,691,776 bytes
 [+] Jumlah stream: 15
@@ -222,9 +173,9 @@ Output yang relevan:
 
 ---
 
-## Langkah 3 — Reconstruct PE dari MDMP
+## Langkah 3. Reconstruct PE dari MDMP
 
-Setelah tahu base VA stealer.exe dan punya mapping VA→file offset, kita bisa reconstruct PE-nya. Script ini lengkap dan standalone — bisa langsung dijalankan.
+Setelah tahu base VA stealer.exe dan punya mapping VA→file offset, kita bisa reconstruct PE-nya.
 
 ```python
 #!/usr/bin/env python3
@@ -347,7 +298,6 @@ print(f"[!] Verifikasi: sha256sum {OUT_FILE}")
 ```
 
 ```bash
-python3 extract_pe.py
 
 # Verifikasi
 file carve/stealer_extracted.exe
@@ -359,7 +309,7 @@ sha256sum carve/stealer_extracted.exe
 
 ---
 
-## Langkah 4 — Analisis Binary: Go + Garble
+## Langkah 4. Analisis Binary
 
 ```bash
 # Cek apakah Go binary — ada build info magic
@@ -383,18 +333,16 @@ strings carve/stealer_extracted.exe | grep -E "\.go$" | head -20
 # → nama file .go yang sudah di-rename oleh garble
 ```
 
-**Kesimpulan:** Binary Go yang di-compile dengan [Garble](https://github.com/burrowers/garble):
-- Package/function names di-randomize → analisis statik susah
-- String literals di-enkripsi saat compile → C2 URL tidak tampak di strings
-- Tapi di memory (heap), semua string sudah di-decrypt saat runtime → kita scan heap
+**Intinya ini:** Binary Go yang di-compile dengan [Garble](https://github.com/burrowers/garble):
+- Package/function names di-randomize jadinya analisis susah
+- String literals di-enkripsi saat compile jadi C2 URL ga keliatan di strings
+- Semua string sudah di-decrypt saat runtime jadinya scan heap 
 
 ---
 
-## Langkah 5 — Heap Scan: Temukan Artifacts Runtime
+## Langkah 5. Heap Scan Artifacts Runtime
 
-Karena binary ter-obfuscate, pendekatan terbaik adalah scan memory heap dari DMP — di situ semua string sudah dalam bentuk plaintext (sudah di-decrypt oleh runtime Go).
-
-Script ini scan semua memory range yang **bukan** PE region stealer, lalu cari pattern menarik.
+Karena binary ter-obfuscate jadinya dapet insight scan memory heap dari DMP, scan semua memory range yang **bukan** PE region stealer, lalu cari pattern menarik.
 
 ```python
 #!/usr/bin/env python3
@@ -479,10 +427,6 @@ for label, results in hits.items():
         print(f"  Context: {ctx}")
 ```
 
-```bash
-python3 heap_scan.py
-```
-
 Output kunci:
 ```
 [FLAG_PATH] — 1 hit(s)
@@ -495,19 +439,20 @@ Output kunci:
 
 [C2_CHECKSUM] — 1 hit(s)
   VA=0x18b5c660xxxx | file_off=0xe6xxxx
-  Context: POST /checksum HTTP/1.1..Content-Length: 72...
+  Context: HTTP/1.1.%s %s HTTP/1.1..POST /checksum.....Host: %s.....Host: %s....72...User-Agent.....User-Agent......User-Agent: %s..Content-L
+
 ```
 
 **Analisis temuan:**
 - `flag.txt` ada di `C:\Users\SERV\Documents\` → stealer target file ini
 - `POST /upload` dengan `Content-Length: 2128303` → upload utama (ZIP berisi SYSTEM.hive, SECURITY.hive, dll)
-- `POST /checksum` dengan `Content-Length: 72` → **body 72 bytes ini sangat menarik**
+- `POST /checksum` dengan `Content-Length: 72` → **sus**
 
-72 bytes = 12 (nonce) + 44 (ciphertext) + 16 (tag) → **persis struktur AES-256-GCM!**
+72 bytes = 12 (nonce) + 44 (ciphertext) + 16 (tag) → **struktur AES-256-GCM!**
 
 ---
 
-## Langkah 6 — Ekstrak Ciphertext dari POST /checksum
+## Langkah 6. Ekstrak Ciphertext dari POST /checksum
 
 Script ini cari POST /checksum di heap lalu ekstrak body 72 bytes-nya.
 
@@ -586,22 +531,14 @@ else:
     print("[!] Cek heap_scan.py output untuk VA yang benar")
 ```
 
-```bash
-python3 extract_ciphertext.py
-```
-
 ---
 
-## Langkah 7 — Decrypt: AES-256-GCM → FLAG
+## Langkah 7. Decrypt
 
-Semua bahan terkumpul:
+Semua lengkap:
 - **AES-256 Key** (dari `aes_keys.txt`): `848e69c1783a4ca1b27d85cbefa785cb0a5e3fc49d3576766985e99189ef7645`
 - **Body 72 bytes** (dari POST /checksum): nonce + ciphertext + tag
 - **Mode**: AES-256-GCM (deterministik dari ukuran 12-byte nonce)
-
-```bash
-pip3 install pycryptodome
-```
 
 ```python
 #!/usr/bin/env python3
@@ -647,9 +584,6 @@ plaintext = cipher.decrypt_and_verify(ciphertext, tag)
 print(f"\n[+] FLAG: {plaintext.decode()}")
 ```
 
-```bash
-python3 decrypt_flag.py
-```
 
 Output:
 ```
@@ -664,47 +598,3 @@ Tag   : 9a75548ad5d0b56713d6d8ac1cf9d013 (16 bytes)
 ```
 
 ---
-
-## Screenshot Requirements
-
-Untuk dokumentasi/bukti:
-
-| # | Screenshot apa | Command |
-|---|---------------|---------|
-| 1 | bulk_extractor output url.txt | `cat output_hasil/url.txt` |
-| 2 | bulk_extractor output aes_keys.txt | `cat output_hasil/aes_keys.txt` |
-| 3 | parse_mdmp.py output (ModuleListStream, stealer.exe base VA) | `python3 parse_mdmp.py 2>&1 \| head -40` |
-| 4 | extract_pe.py selesai + `file carve/stealer_extracted.exe` | run script lalu `file carve/stealer_extracted.exe` |
-| 5 | sha256sum stealer_extracted.exe | `sha256sum carve/stealer_extracted.exe` |
-| 6 | heap_scan.py menemukan flag.txt path dan POST /checksum | `python3 heap_scan.py 2>&1` |
-| 7 | extract_ciphertext.py — body 72 bytes + AES-GCM breakdown | `python3 extract_ciphertext.py` |
-| 8 | decrypt_flag.py — FLAG | `python3 decrypt_flag.py` |
-
----
-
-## Ringkasan Teknis
-
-| Artifact | Detail |
-|----------|--------|
-| Input | `stealer.DMP` — Windows MiniDump, 76MB, 15 streams, 149 memory ranges |
-| Format MDMP | `ModuleListStream` (module list) + `Memory64ListStream` (VA→file offset map) |
-| C2 Server | `172.20.180.135:1337` — `/upload`, `/upload4`, `/checksum` |
-| Stealer binary | `C:\Users\SERV\Desktop\stealer.exe`, PE32+ x86-64, 13.4MB |
-| Bahasa | Go dengan Garble obfuscation (package/function names di-randomize) |
-| SHA256 | `c6774d4ac1b4132f20f91581d2fbadb3a03f72738b562bd5840273d87b20b9d7` |
-| Target stealer | `C:\Users\SERV\Documents\flag.txt` + DPAPI Crypto keys + registry hives |
-| Enkripsi | AES-256-GCM: nonce 12b + ciphertext 44b + tag 16b = 72b total |
-| AES Key | `848e69c1783a4ca1b27d85cbefa785cb0a5e3fc49d3576766985e99189ef7645` |
-| **FLAG** | **`FindITCTF{#kita usahakan wfh gaji usd itu!!}`** |
-
----
-
-## Tools
-
-```
-bulk_extractor  — recon kasar, ekstrak URL/AES key/ZIP dari raw bytes
-xxd / strings   — inspeksi manual
-Python3 struct  — parse MDMP format, reconstruct PE, scan heap
-pycryptodome    — AES-256-GCM decrypt
-file, sha256sum — verifikasi binary
-```
